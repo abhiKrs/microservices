@@ -1,0 +1,6 @@
+kubernetesClusterDomain: cluster.local
+flink:
+    image:
+      repository: docker.io/dockercgs/flink #logfire/filter-service
+      tag: latest
+

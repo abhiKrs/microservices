@@ -1,0 +1,341 @@
+apiVersion: getambassador.io/v3alpha1
+kind: Listener
+metadata:
+  name: listener-8443
+spec:
+  port: 8443
+  protocol: HTTPS
+  securityModel: XFP
+  hostBinding:
+    hostBinding:
+    namespace:
+      from: SELF
+---
+apiVersion: getambassador.io/v3alpha1
+kind: Listener
+metadata:
+  name: listener-8080
+spec:
+  port: 8080
+  protocol: HTTP
+  securityModel: XFP
+  hostBinding:
+    hostBinding:
+    namespace:
+      from: SELF
+    selector:
+      matchLabels:
+        exampleName: beta2logs
+apiVersion: getambassador.io/v3alpha1
+kind: Listener
+metadata:
+  name: listener-8443
+spec:
+  port: 8443
+  protocol: HTTPS
+  securityModel: XFP
+  hostBinding:
+    hostBinding:
+    namespace:
+      from: SELF
+---
+apiVersion: getambassador.io/v3alpha1
+kind: Listener
+metadata:
+  name: listener-8080
+spec:
+  port: 8080
+  protocol: HTTP
+  securityModel: XFP
+  hostBinding:
+    hostBinding:
+    namespace:
+      from: SELF
+    selector:
+      matchLabels:
+        exampleName: beta2logs
+---
+apiVersion: getambassador.io/v3alpha1
+kind: Listener
+metadata:
+  name: listener-443
+spec:
+  port: 443
+  protocol: HTTPS
+  securityModel: XFP
+  hostBinding:
+    hostBinding:
+    namespace:
+      from: SELF
+---
+apiVersion: getambassador.io/v3alpha1
+kind: Host
+metadata:
+  name: staging-host
+  labels:
+    exampleName: apibeta2
+spec:
+  hostname: "apibeta2.logfire.sh"
+  mappingSelector:
+    matchLabels:
+      examplehost: apibeta2
+  tlsSecret:
+    name: ambassador-certs
+  requestPolicy:
+    insecure:
+      action: Route
+---
+apiVersion: getambassador.io/v3alpha1
+kind: Host
+metadata:
+  name: logs-host
+  labels:
+    exampleName: beta2logs
+spec:
+  hostname: "beta2logs.logfire.sh"
+  requestPolicy:
+    insecure:
+      action: Route
+---
+apiVersion: getambassador.io/v3alpha1
+kind:  Mapping
+metadata:
+  name:  gowebapi-mapping
+  labels:
+    examplehost: apibeta2
+spec:
+  prefix: /api/
+  service: gowebapi:8080
+  hostname: 'apibeta2.logfire.sh'
+---
+apiVersion: getambassador.io/v3alpha1
+kind:  Mapping
+metadata:
+  name:  livetail-mapping
+  labels:
+    examplehost: apibeta2
+spec:
+  hostname: "apibeta2.logfire.sh"
+  prefix: /livetail/
+  service: livetail
+  allow_upgrade:
+  - websocket
+---
+# apiVersion: getambassador.io/v3alpha1
+# kind: TLSContext
+# metadata:
+#   name: tls
+# spec:
+#   hosts:
+#   - "*"
+#   secret: ambassador-certs
+#   alpn_protocols: h2
+# ---
+apiVersion: getambassador.io/v3alpha1
+kind: Mapping
+metadata:
+  name: grpc-filter
+spec:
+  hostname: '*'
+  grpc: true
+  prefix: /
+  service: filter-service:80
+  rewrite: /
+  # host: "apibeta2.logfire.sh"
+  timeout_ms: 4000
+  idle_timeout_ms: 500000
+  connect_timeout_ms: 2000
+  # bypass_auth: true
+  # dns_type: logical_dns
+  # cors:
+  #   credentials: false
+  #   origins:
+  #     - "*"
+  #   methods:
+  #     - POST
+  #     - GET
+  #     - OPTIONS
+  #     - PUT
+  #     - DELETE
+  #   headers:
+  #     - keep-alive
+  #     - user-agent
+  #     - cache-control
+  #     - content-type
+  #     - content-transfer-encoding
+  #     - custom-header-1
+  #     - x-accept-content-transfer-encoding
+  #     - x-accept-response-streaming
+  #     - x-user-agent
+  #     - x-grpc-web
+  #     - x-grpc-web-text
+  #     - grpc-timeout
+  #   exposed_headers:
+  #     - grpc-status
+  #     - grpc-message
+---
+apiVersion: getambassador.io/v3alpha1
+kind:  Mapping
+metadata:
+  name:  logs-mapping
+  labels:
+    examplehost: beta2logs
+spec:
+  prefix: /
+  rewrite: /logfire.sh/
+  service: gowebapi:8080
+  hostname: 'beta2logs.logfire.sh'
+---
+apiVersion: getambassador.io/v2
+kind: Module
+metadata:
+  name: ambassador
+spec:
+  config:
+    use_proxy_proto: true
+    enable_grpc_web: true
+    enable_grpc_http11_bridge: true
+    # strip_matching_host_port: true
+    diagnostics:
+      enabled: true
+    lua_scripts: |
+      function envoy_on_request(request_handle)
+        local authority = request_handle:headers():get(":authority")
+        if(string.find(authority, ":") ~= nil)
+        then
+          local authority_index = string.find(authority, ":")
+          local stripped_authority = string.sub(authority, 1, authority_index - 1)
+          request_handle:headers():replace(":authority", stripped_authority)
+        end
+      end
+---
+
+# ---
+# apiVersion: getambassador.io/v3alpha1
+# kind: Listener
+# metadata:
+#   name: listener-443
+# spec:
+#   port: 443
+#   protocol: HTTPS
+#   securityModel: XFP
+#   hostBinding:
+#     hostBinding:
+#     namespace:
+#       from: SELF
+---
+apiVersion: getambassador.io/v3alpha1
+kind: Host
+metadata:
+  name: staging-host
+  labels:
+    exampleName: apibeta2
+spec:
+  hostname: "apibeta2.logfire.sh"
+  mappingSelector:
+    matchLabels:
+      examplehost: apibeta2
+  tlsSecret:
+    name: ambassador-certs
+  requestPolicy:
+    insecure:
+      action: Route
+---
+apiVersion: getambassador.io/v3alpha1
+kind: Host
+metadata:
+  name: logs-host
+  labels:
+    exampleName: beta2logs
+spec:
+  hostname: "beta2logs.logfire.sh"
+  requestPolicy:
+    insecure:
+      action: Route
+---
+apiVersion: getambassador.io/v3alpha1
+kind:  Mapping
+metadata:
+  name:  gowebapi-mapping
+  labels:
+    examplehost: apibeta2
+spec:
+  prefix: /api/
+  service: gowebapi:8080
+  hostname: 'apibeta2.logfire.sh'
+---
+apiVersion: getambassador.io/v3alpha1
+kind:  Mapping
+metadata:
+  name:  livetail-mapping
+  labels:
+    examplehost: apibeta2
+spec:
+  hostname: "*"
+  prefix: /livetail/
+  service: livetail
+  allow_upgrade:
+  - websocket
+---
+apiVersion: getambassador.io/v3alpha1
+kind: TLSContext
+metadata:
+  name: tls
+spec:
+  hosts:
+  - "*"
+  secret: ambassador-certs
+  alpn_protocols: h2
+---
+apiVersion: getambassador.io/v3alpha1
+kind: Mapping
+metadata:
+  name: grpc-filter
+spec:
+  hostname: 'apibeta2.logfire.sh'
+  grpc: True
+  prefix: /logfilter/
+  service: filter-service
+  rewrite: /sh.logfire.FlinkService/
+  timeout_ms: 4000
+  idle_timeout_ms: 500000
+  connect_timeout_ms: 2000
+  bypass_auth: true
+  dns_type: logical_dns
+  cors:
+    credentials: false
+    origins:
+      - "*"
+    methods:
+      - POST
+      - GET
+      - OPTIONS
+      - PUT
+      - DELETE
+    headers:
+      - keep-alive
+      - user-agent
+      - cache-control
+      - content-type
+      - content-transfer-encoding
+      - custom-header-1
+      - x-accept-content-transfer-encoding
+      - x-accept-response-streaming
+      - x-user-agent
+      - x-grpc-web
+      - grpc-timeout
+    exposed_headers:
+      - grpc-status
+      - grpc-message
+---
+apiVersion: getambassador.io/v3alpha1
+kind:  Mapping
+metadata:
+  name:  logs-mapping
+  labels:
+    examplehost: beta2logs
+spec:
+  prefix: /
+  rewrite: /logfire.sh/
+  service: gowebapi:8080
+  hostname: 'beta2logs.logfire.sh'

@@ -1,0 +1,108 @@
+---
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: gowebapi-proxy
+spec:
+  virtualhost:
+    fqdn: apibeta2.logfire.sh
+    tls:
+      secretName: ambassador-certs
+    corsPolicy:
+      allowCredentials: true
+      allowOrigin:
+        - "*" 
+      allowMethods:
+        - GET
+        - POST
+        - OPTIONS
+        - DELETE
+        - PUT
+        - PATCH
+      allowHeaders:
+        - authorization
+        - cache-control
+        - x-grpc-web
+        - User-Agent
+        - x-accept-content-transfer-encoding
+        - x-accept-response-streaming
+        - access-control-allow-origin
+        - x-user-agent
+        - x-grpc-web
+        - grpc-timeout
+        - Grpc-Message
+        - Grpc-Status
+        - content-type
+  routes:
+    - conditions:
+      - prefix: /api
+      services:
+      - name: gowebapi
+        port: 8080
+      pathRewritePolicy:
+        replacePrefix:
+        - replacement: /
+    - conditions:
+      - prefix: /livetail
+      services:
+      - name: livetail
+        port: 80
+      pathRewritePolicy:
+        replacePrefix:
+        - replacement: /
+    - conditions:
+      - prefix: /
+      services:
+      - name: filter-service
+        port: 80
+        protocol: h2c
+      timeoutPolicy:
+        response: 86400s
+    - conditions:
+      - prefix: /yages.Echo/Ping # Matches a specific gRPC method.
+      services:
+      - name: grpc-echo
+        port: 80
+        protocol: h2c # h2c
+    # - conditions: 
+    #   - prefix: / # Matches everything else.
+    #   services:
+    #   - name: grpc-echo
+    #     port: 80
+    #     protocol: h2
+---
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: logs-proxy
+spec:
+  virtualhost:
+    fqdn: beta2logs.logfire.sh
+  routes:
+    - services:
+      - name: gowebapi
+        port: 8080
+      pathRewritePolicy:
+        replacePrefix:
+        - replacement: /logfire.sh
+# ---
+# apiVersion: projectcontour.io/v1
+# kind: HTTPProxy
+# metadata:
+#   name: grpc-proxy
+# spec:
+#   virtualhost:
+#     fqdn: apibeta2.logfire.sh 
+#   routes:
+#   - conditions:
+#     - prefix: /sh.logfire.FlinkService/SubmitFilterRequest
+#     services:
+#     - name: filter-service
+#       port: 80
+#       protocol: h2 # h2c
+#   # - conditions: 
+#   #   - prefix: / # Matches everything else.
+#   #   services:
+#   #   - name: grpc-echo
+#   #     port: 9000
+#   #     protocol: h2c
